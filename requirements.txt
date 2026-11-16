@@ -1,0 +1,9 @@
+torch
+torchvision
+torchaudio
+transformers
+datasets
+tensorboard_logger
+pandas
+matplotlib
+numpy

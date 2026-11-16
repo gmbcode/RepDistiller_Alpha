@@ -1,0 +1,4 @@
+  File "C:\Users\gmbha\OneDrive\Desktop\CRD\RepDistiller\train_student.py", line 6
+    from __future__ import print_function
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: from __future__ imports must occur at the beginning of the file

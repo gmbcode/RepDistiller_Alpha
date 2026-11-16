@@ -1,7 +1,6 @@
 """
 the general training framework
 """
-
 from __future__ import print_function
 
 import os
@@ -9,7 +8,10 @@ import argparse
 import socket
 import time
 
-import tensorboard_logger as tb_logger
+try:
+    import tensorboard_logger as tb_logger
+except Exception:
+    tb_logger = None
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -20,6 +22,8 @@ from models import model_dict
 from models.util import Embed, ConvReg, LinearEmbed
 from models.util import Connector, Translator, Paraphraser
 
+from dataset_patch import patch_get_cifar100_dataloaders_sample
+patch_get_cifar100_dataloaders_sample()
 from dataset.cifar100 import get_cifar100_dataloaders, get_cifar100_dataloaders_sample
 
 from helper.util import adjust_learning_rate
@@ -87,6 +91,10 @@ def parse_option():
     # hint layer
     parser.add_argument('--hint_layer', default=2, type=int, choices=[0, 1, 2, 3, 4])
 
+    # sweep / runtime
+    parser.add_argument('--subset_frac', default=1.0, type=float, help='fraction of training data to use')
+    parser.add_argument('--gpu', default=0, type=int, help='GPU device id to use')
+
     opt = parser.parse_args()
 
     # set different learning rate from these 4 models
@@ -135,7 +143,11 @@ def load_teacher(model_path, n_cls):
     print('==> loading teacher model')
     model_t = get_teacher_name(model_path)
     model = model_dict[model_t](num_classes=n_cls)
-    model.load_state_dict(torch.load(model_path)['model'])
+    try:
+        ckpt = torch.load(model_path, map_location='cpu', weights_only=False)
+    except TypeError:
+        ckpt = torch.load(model_path, map_location='cpu')
+    model.load_state_dict(ckpt['model'])
     print('==> done')
     return model
 
@@ -145,8 +157,17 @@ def main():
 
     opt = parse_option()
 
+    if torch.cuda.is_available() and opt.gpu is not None:
+        torch.cuda.set_device(opt.gpu)
+
     # tensorboard logger
-    logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
+    if tb_logger is not None:
+        logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
+    else:
+        class _NoOpLogger(object):
+            def log_value(self, *args, **kwargs):
+                pass
+        logger = _NoOpLogger()
 
     # dataloader
     if opt.dataset == 'cifar100':
@@ -154,7 +175,8 @@ def main():
             train_loader, val_loader, n_data = get_cifar100_dataloaders_sample(batch_size=opt.batch_size,
                                                                                num_workers=opt.num_workers,
                                                                                k=opt.nce_k,
-                                                                               mode=opt.mode)
+                                                                               mode=opt.mode,
+                                                                               subset_frac=opt.subset_frac)
         else:
             train_loader, val_loader, n_data = get_cifar100_dataloaders(batch_size=opt.batch_size,
                                                                         num_workers=opt.num_workers,
@@ -309,7 +331,7 @@ def main():
 
         # save the best model
         if test_acc > best_acc:
-            best_acc = test_acc
+            best_acc = float(test_acc)
             state = {
                 'epoch': epoch,
                 'model': model_s.state_dict(),
