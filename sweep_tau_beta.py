@@ -55,6 +55,7 @@ def parse_args():
     p.add_argument("--beta_values", nargs="+", type=float, default=BETA_VALUES)
     p.add_argument("--epochs", type=int, default=EPOCHS)
     p.add_argument("--subset_frac", type=float, default=SUBSET_FRAC)
+    p.add_argument("--num_workers", type=int, default=NUM_WORKERS)
     p.add_argument("--teacher_path", type=str, default=TEACHER_PATH)
     p.add_argument("--gpu", type=int, default=0)
     return p.parse_args()
@@ -73,7 +74,7 @@ def build_command(tau, beta, trial_id, args):
         "--nce_t",       str(tau),
         "--epochs",      str(args.epochs),
         "--batch_size",  str(BATCH_SIZE),
-        "--num_workers", str(NUM_WORKERS),
+        "--num_workers", str(args.num_workers),
         "--trial",       str(trial_id),
         "--subset_frac", str(args.subset_frac),
         "--gpu",         str(args.gpu),
